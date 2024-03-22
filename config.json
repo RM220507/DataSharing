@@ -2,6 +2,6 @@
     "server" : "192.168.1.179",
     "port" : 1883,
     "channel" : "datashare/DESKTOP",
-    "auto_open_link" : true,
+    "auto_open_link" : false,
     "ask_download_file" : false
 }

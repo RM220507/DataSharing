@@ -5,6 +5,8 @@ from tkinter import messagebox
 import json
 import tkinter as tk
 
+# TODO: File sharing
+
 class DataSharingApp(ctk.CTk):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -44,6 +46,8 @@ class DataSharingApp(ctk.CTk):
         
         self.setup_mqtt()
         
+        self.__link_sent = False
+        
     def setup_mqtt(self):
         self.__client = mqtt.Client()
         
@@ -68,17 +72,19 @@ class DataSharingApp(ctk.CTk):
     def on_message(self, client, userdata, msg):
         decoded = msg.payload.decode("utf-8")
         payload = json.loads(decoded)
-        
         if payload.get("type") == "text":
             self.add_to_list(f"Text Received: {payload.get('content')}")
         elif payload.get("type") == "link":
             link = payload.get('content')
             self.add_to_list(f"Link Received: {link}")
-            if self.__config.get("auto_open_link"):
-                webbrowser.open(link)
+            if self.__link_sent:
+                self.__link_sent = False
             else:
-                if messagebox.askyesno("Link Received", f"Link Received: '{link}'. Open?"):
+                if self.__config.get("auto_open_link"):
                     webbrowser.open(link)
+                else:
+                    if messagebox.askyesno("Link Received", f"Link Received: '{link}'. Open?"):
+                        webbrowser.open(link)
         elif payload.get("type") == "file":
             pass
         
@@ -107,6 +113,7 @@ class DataSharingApp(ctk.CTk):
             }
             self.__client.publish(self.__current_channel, json.dumps(payload))
             self.__message_entry.delete(0, tk.END)
+            self.__link_sent = True
     
     def send_file(self):
         # IMPLEMENT PLEASE
@@ -114,6 +121,3 @@ class DataSharingApp(ctk.CTk):
 
 app = DataSharingApp()
 app.mainloop()
-# SEND LINK / MESSAGE
-# ALTER CHANNEL
-# REQUIRE AUTHORISATION?
