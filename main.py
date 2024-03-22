@@ -4,6 +4,7 @@ import webbrowser
 from tkinter import messagebox
 import json
 import tkinter as tk
+import os.path as path
 
 # TODO: File sharing
 
@@ -46,7 +47,7 @@ class DataSharingApp(ctk.CTk):
         
         self.setup_mqtt()
         
-        self.__link_sent = False
+        self.__just_sent = False
         
     def setup_mqtt(self):
         self.__client = mqtt.Client()
@@ -77,8 +78,8 @@ class DataSharingApp(ctk.CTk):
         elif payload.get("type") == "link":
             link = payload.get('content')
             self.add_to_list(f"Link Received: {link}")
-            if self.__link_sent:
-                self.__link_sent = False
+            if self.__just_sent:
+                self.__just_sent = False
             else:
                 if self.__config.get("auto_open_link"):
                     webbrowser.open(link)
@@ -86,7 +87,15 @@ class DataSharingApp(ctk.CTk):
                     if messagebox.askyesno("Link Received", f"Link Received: '{link}'. Open?"):
                         webbrowser.open(link)
         elif payload.get("type") == "file":
-            pass
+            if self.__just_sent:
+                self.__just_sent = False
+            else:
+                save_location = tk.filedialog.askdirectory()
+                if not save_location:
+                    return
+                
+                with open(path.join(save_location, payload.get("filename", "unknown")), "wb") as f:
+                    f.write(payload.get("content"))
         
     def add_to_list(self, text):
         self.__data_stream.insert(tk.END, text + "\n")
@@ -95,6 +104,7 @@ class DataSharingApp(ctk.CTk):
         if self.__client_connected:
             self.__client.unsubscribe(self.__current_channel)
             self.__client.subscribe(self.__channel_entry.get())
+            self.__current_channel = self.__channel_entry.get()
     
     def send_text(self):
         if self.__client_connected:
@@ -113,11 +123,27 @@ class DataSharingApp(ctk.CTk):
             }
             self.__client.publish(self.__current_channel, json.dumps(payload))
             self.__message_entry.delete(0, tk.END)
-            self.__link_sent = True
+            self.__just_sent = True
     
     def send_file(self):
-        # IMPLEMENT PLEASE
-        pass
-
+        filename = tk.filedialog.askopenfilename(filetypes=(("All files","*.*")))
+        if not filename:
+            return
+        
+        with open(filename, "rb") as f:
+            content = f.read()
+            
+        basename = path.basename(filename)
+        
+        if self.__client_connected:
+            payload = {
+                "type" : "file",
+                "filename" : basename,
+                "content" : content
+            }
+            
+            self.__client.publish(self.__current_channel, json.dumps(payload))
+            self.__just_sent = True
+            
 app = DataSharingApp()
 app.mainloop()
